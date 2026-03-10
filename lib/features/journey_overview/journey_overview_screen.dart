@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/milestone_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -10,163 +11,22 @@ import '../../shared/widgets/cream_scaffold.dart';
 import '../../shared/widgets/serif_text.dart';
 import 'widgets/clothesline_painter.dart';
 
-class JourneyOverviewScreen extends StatefulWidget {
+class JourneyOverviewScreen extends StatelessWidget {
   const JourneyOverviewScreen({super.key});
 
   @override
-  State<JourneyOverviewScreen> createState() => _JourneyOverviewScreenState();
-}
-
-class _JourneyOverviewScreenState extends State<JourneyOverviewScreen> {
-  static const double _weekSpacing = 56.0;
-  static const double _canvasHeight = 310.0;
-  static const double _lineY = 150.0;
-  static const double _pinW = 72.0;
-  static const double _iconH = 52.0; // emoji(20) + gap(4) + label(~28)
-  static const double _dotR = 5.0;
-  static const double _currentDotR = 10.0;
-  static const double _slotSize = 44.0;
-
-  // Scatter layout per milestone index: (isAbove, extraVerticalOffset)
-  // Matches mock_data milestone order: weeks 8, 12, 18, 20, 28, 36, 40
-  static const _layouts = [
-    (true,  10.0),  // 0: week 8  — above, moderate
-    (false,  0.0),  // 1: week 12 — below, close
-    (true,  28.0),  // 2: week 18 — above, high
-    (false, 22.0),  // 3: week 20 — below, far
-    (true,  18.0),  // 4: week 28 — above, mid-high
-    (true,   5.0),  // 5: week 36 — above, close (current)
-    (false, 12.0),  // 6: week 40 — below, moderate
-  ];
-
-  late final TransformationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TransformationController();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _centerOnCurrentWeek());
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _centerOnCurrentWeek() {
-    if (!mounted) return;
-    final screenW = MediaQuery.of(context).size.width;
-    final weekX = TimelineUtils.xForWeek(mockJourney.currentWeek, _weekSpacing);
-    _controller.value = Matrix4.identity()..translate(screenW / 2 - weekX, 0.0);
-  }
-
-  // y-top of the floating icon group for milestone at [index]
-  double _iconTop(int index) {
-    final (isAbove, extraH) = _layouts[index];
-    final isCurrent = mockJourney.milestones[index].week == mockJourney.currentWeek;
-    final dr = isCurrent ? _currentDotR : _dotR;
-    return isAbove
-        ? _lineY - dr - 6.0 - _iconH - extraH
-        : _lineY + dr + 4.0 + extraH;
-  }
-
-  // y-top of the photo slot for milestone at [index]
-  double _slotTop(int index) {
-    final (isAbove, _) = _layouts[index];
-    final iconTop = _iconTop(index);
-    return isAbove ? iconTop - _slotSize - 5.0 : iconTop + _iconH + 5.0;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final journey = mockJourney;
-    final double canvasWidth =
-        TimelineUtils.xForWeek(journey.totalWeeks, _weekSpacing) + _weekSpacing;
-
     return CreamScaffold(
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader()),
-          SliverToBoxAdapter(child: _buildTimeline(canvasWidth)),
+          const SliverToBoxAdapter(child: _ClotheslineTimeline()),
           SliverToBoxAdapter(child: _buildScrollHint()),
           SliverToBoxAdapter(child: _buildBabySizeCard()),
-          SliverToBoxAdapter(child: _buildJournalColumns()),
+          SliverToBoxAdapter(child: _buildJournalColumns(context)),
           SliverToBoxAdapter(child: _buildWeekFocus()),
           const SliverToBoxAdapter(child: SizedBox(height: 48)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTimeline(double canvasWidth) {
-    final journey = mockJourney;
-    return SizedBox(
-      height: _canvasHeight,
-      child: InteractiveViewer(
-        transformationController: _controller,
-        constrained: false,
-        minScale: 0.25,
-        maxScale: 5.0,
-        boundaryMargin: const EdgeInsets.all(double.infinity),
-        child: SizedBox(
-          width: canvasWidth,
-          height: _canvasHeight,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // 1. Clothesline: bands + wire + ticks
-              CustomPaint(
-                size: Size(canvasWidth, _canvasHeight),
-                painter: ClotheslinePainter(
-                  currentWeek: journey.currentWeek,
-                  totalWeeks: journey.totalWeeks,
-                  weekSpacing: _weekSpacing,
-                  lineY: _lineY,
-                ),
-              ),
-
-              // 2. Photo slots (behind milestone icons)
-              ...journey.milestones.asMap().entries.map((e) {
-                final x = TimelineUtils.xForWeek(e.value.week, _weekSpacing);
-                return _PhotoSlot(
-                  left: x - _slotSize / 2,
-                  top: _slotTop(e.key),
-                  size: _slotSize,
-                  hasEntry: journey.entryForWeek(e.value.week) != null,
-                  onTap: () => context.push('/week/${e.value.week}/entry'),
-                );
-              }),
-
-              // 3. Milestone icons (floating above/below wire)
-              ...journey.milestones.asMap().entries.map((e) {
-                final x = TimelineUtils.xForWeek(e.value.week, _weekSpacing);
-                return _MilestonePin(
-                  milestone: e.value,
-                  left: x - _pinW / 2,
-                  top: _iconTop(e.key),
-                  width: _pinW,
-                  onTap: () => context.push('/week/${e.value.week}'),
-                );
-              }),
-
-              // 4. Transparent tap targets over every week dot
-              ...List.generate(journey.totalWeeks, (i) {
-                final week = i + 1;
-                final x = TimelineUtils.xForWeek(week, _weekSpacing);
-                return Positioned(
-                  left: x - 22,
-                  top: _lineY - 22,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => context.push('/week/$week'),
-                    child: const SizedBox(width: 44, height: 44),
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -176,12 +36,9 @@ class _JourneyOverviewScreenState extends State<JourneyOverviewScreen> {
       bottom: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.lg,
-          AppSpacing.xs,
+          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xs,
         ),
-        child: Column(
+        child: Builder(builder: (context) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SerifText(mockJourney.name, fontSize: 30),
@@ -191,27 +48,21 @@ class _JourneyOverviewScreenState extends State<JourneyOverviewScreen> {
               style: AppTypography.bodySmall.copyWith(color: AppColors.warmTaupe),
             ),
           ],
-        ),
+        )),
       ),
     );
   }
 
   Widget _buildScrollHint() {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.xs,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
       child: Row(
         children: [
           const Icon(Icons.pinch_rounded, size: 13, color: AppColors.warmTaupe),
           const SizedBox(width: AppSpacing.xs),
           Text(
-            'Pinch to zoom · drag to explore',
-            style: AppTypography.label.copyWith(
-              color: AppColors.warmTaupe,
-              fontSize: 10,
-            ),
+            'Drag to scroll · pinch to zoom',
+            style: AppTypography.label.copyWith(color: AppColors.warmTaupe, fontSize: 10),
           ),
         ],
       ),
@@ -220,12 +71,7 @@ class _JourneyOverviewScreenState extends State<JourneyOverviewScreen> {
 
   Widget _buildBabySizeCard() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        0,
-      ),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
@@ -236,43 +82,27 @@ class _JourneyOverviewScreenState extends State<JourneyOverviewScreen> {
         child: Row(
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: 56, height: 56,
               decoration: BoxDecoration(
                 color: AppColors.softGold.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Center(
-                child: Text('🍈', style: TextStyle(fontSize: 28)),
-              ),
+              child: const Center(child: Text('🍈', style: TextStyle(fontSize: 28))),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'YOUR BABY THIS WEEK',
-                    style: AppTypography.label.copyWith(
-                      color: AppColors.warmTaupe,
-                      fontSize: 9,
-                    ),
-                  ),
+                  Text('YOUR BABY THIS WEEK',
+                      style: AppTypography.label.copyWith(color: AppColors.warmTaupe, fontSize: 9)),
                   const SizedBox(height: 4),
-                  Text(
-                    'The size of a honeydew melon',
-                    style: AppTypography.body.copyWith(
-                      color: AppColors.warmBrown,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  Text('The size of a honeydew melon',
+                      style: AppTypography.body.copyWith(
+                          color: AppColors.warmBrown, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 2),
-                  Text(
-                    'About 47 cm · 2.6 kg',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.warmTaupe,
-                    ),
-                  ),
+                  Text('About 47 cm · 2.6 kg',
+                      style: AppTypography.bodySmall.copyWith(color: AppColors.warmTaupe)),
                 ],
               ),
             ),
@@ -282,44 +112,25 @@ class _JourneyOverviewScreenState extends State<JourneyOverviewScreen> {
     );
   }
 
-  Widget _buildJournalColumns() {
+  Widget _buildJournalColumns(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        0,
-      ),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'TODAY\'S CHECK-IN',
-            style: AppTypography.label.copyWith(color: AppColors.warmTaupe),
-          ),
+          Text('TODAY\'S CHECK-IN',
+              style: AppTypography.label.copyWith(color: AppColors.warmTaupe)),
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              _JournalColumn(
-                emoji: '🤸',
-                title: 'Physical',
-                subtitle: 'How\'s your body?',
-                onTap: () => context.push('/week/${mockJourney.currentWeek}/entry'),
-              ),
+              _JournalColumn(emoji: '🤸', title: 'Physical', subtitle: 'How\'s your body?',
+                  onTap: () => _goEntry(context)),
               const SizedBox(width: AppSpacing.sm),
-              _JournalColumn(
-                emoji: '💛',
-                title: 'Emotional',
-                subtitle: 'Mood & thoughts',
-                onTap: () => context.push('/week/${mockJourney.currentWeek}/entry'),
-              ),
+              _JournalColumn(emoji: '💛', title: 'Emotional', subtitle: 'Mood & thoughts',
+                  onTap: () => _goEntry(context)),
               const SizedBox(width: AppSpacing.sm),
-              _JournalColumn(
-                emoji: '🩺',
-                title: 'Medical',
-                subtitle: 'Reminders',
-                onTap: () => context.push('/week/${mockJourney.currentWeek}/entry'),
-              ),
+              _JournalColumn(emoji: '🩺', title: 'Medical', subtitle: 'Reminders',
+                  onTap: () => _goEntry(context)),
             ],
           ),
         ],
@@ -327,14 +138,12 @@ class _JourneyOverviewScreenState extends State<JourneyOverviewScreen> {
     );
   }
 
+  void _goEntry(BuildContext context) =>
+      context.push('/week/${mockJourney.currentWeek}/entry');
+
   Widget _buildWeekFocus() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        0,
-      ),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
@@ -345,25 +154,14 @@ class _JourneyOverviewScreenState extends State<JourneyOverviewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '✨  THIS WEEK\'S FOCUS',
-              style: AppTypography.label.copyWith(color: AppColors.warmBrown),
-            ),
+            Text('✨  THIS WEEK\'S FOCUS',
+                style: AppTypography.label.copyWith(color: AppColors.warmBrown)),
             const SizedBox(height: AppSpacing.md),
-            _FocusTip(
-              emoji: '🌿',
-              text: 'Rest when you can — your body is doing incredible work.',
-            ),
+            _FocusTip(emoji: '🌿', text: 'Rest when you can — your body is doing incredible work.'),
             const SizedBox(height: AppSpacing.sm),
-            _FocusTip(
-              emoji: '💧',
-              text: 'Stay hydrated and keep up gentle movement.',
-            ),
+            _FocusTip(emoji: '💧', text: 'Stay hydrated and keep up gentle movement.'),
             const SizedBox(height: AppSpacing.sm),
-            _FocusTip(
-              emoji: '📋',
-              text: 'Review your birth plan and pack your hospital bag.',
-            ),
+            _FocusTip(emoji: '📋', text: 'Review your birth plan and pack your hospital bag.'),
           ],
         ),
       ),
@@ -371,7 +169,190 @@ class _JourneyOverviewScreenState extends State<JourneyOverviewScreen> {
   }
 }
 
-// ─── Private widgets ────────────────────────────────────────────────────────
+// ─── Clothesline Timeline ────────────────────────────────────────────────────
+
+class _ClotheslineTimeline extends StatefulWidget {
+  const _ClotheslineTimeline();
+
+  @override
+  State<_ClotheslineTimeline> createState() => _ClotheslineTimelineState();
+}
+
+class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
+  static const double _canvasH = 200.0;
+  static const double _lineY = 78.0;
+  static const double _weekSpacing = 110.0;
+  static const double _pinW = 88.0;
+
+  // Baby size emoji for weeks 1–40
+  static const _babyEmoji = [
+    '🌱', '🌾', '🫘', '🫐', '🍒', // 1–5
+    '🫛', '🍓', '🫒', '🍇', '🍊', // 6–10
+    '🍋', '🥝', '🍑', '🍏', '🍎', // 11–15
+    '🥑', '🍐', '🍠', '🥭', '🍌', // 16–20
+    '🥕', '🌽', '🍈', '🫑', '🥦', // 21–25
+    '🥬', '🍅', '🍆', '🥒', '🥥', // 26–30
+    '🍍', '🥔', '🧅', '🎃', '🌶️', // 31–35
+    '🍉', '🧄', '🧆', '🥗', '🍉', // 36–40
+  ];
+
+  static String _twemojiUrl(String emoji) {
+    final runes = emoji.runes
+        .where((r) => r != 0xFE0F) // strip variation selector
+        .map((r) => r.toRadixString(16))
+        .join('-');
+    return 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/$runes.png';
+  }
+
+  double _offset = 0;
+  double _viewportWidth = 0;
+  double _offsetAtDragStart = 0;
+  double _dragStartX = 0;
+  bool _initialized = false;
+
+  double get _totalW => mockJourney.totalWeeks * _weekSpacing + _weekSpacing;
+  double get _maxOffset => (_totalW - _viewportWidth).clamp(0, double.infinity);
+
+  void _initOffset() {
+    if (_initialized || _viewportWidth == 0) return;
+    _initialized = true;
+    final weekX = TimelineUtils.xForWeek(mockJourney.currentWeek, _weekSpacing);
+    _offset = (weekX - _viewportWidth / 2).clamp(0, _maxOffset);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final journey = mockJourney;
+
+    return LayoutBuilder(builder: (context, constraints) {
+      _viewportWidth = constraints.maxWidth;
+      _initOffset();
+      final totalW = _totalW;
+
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (details) {
+          _offsetAtDragStart = _offset;
+          _dragStartX = details.globalPosition.dx;
+        },
+        onHorizontalDragUpdate: (details) {
+          setState(() {
+            final dx = _dragStartX - details.globalPosition.dx;
+            _offset = (_offsetAtDragStart + dx).clamp(0, _maxOffset);
+          });
+        },
+        child: ClipRect(
+          child: SizedBox(
+            height: _canvasH,
+            child: Stack(
+              children: [
+                // ── Scrolling content ──────────────────────────────────
+                Transform.translate(
+                  offset: Offset(-_offset, 0),
+                  child: SizedBox(
+                    width: totalW,
+                    height: _canvasH,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Bands + dots + current week gold circle
+                        CustomPaint(
+                          size: Size(totalW, _canvasH),
+                          painter: ClotheslinePainter(
+                            currentWeek: journey.currentWeek,
+                            totalWeeks: journey.totalWeeks,
+                            weekSpacing: _weekSpacing,
+                            lineY: _lineY,
+                          ),
+                        ),
+
+                        // Baby size emojis above the line
+                        ...List.generate(journey.totalWeeks, (i) {
+                          final week = i + 1;
+                          final x = TimelineUtils.xForWeek(week, _weekSpacing);
+                          return Positioned(
+                            left: x - 14,
+                            top: _lineY - 54,
+                            child: Image.network(
+                              _twemojiUrl(_babyEmoji[i]),
+                              width: 28, height: 28,
+                              errorBuilder: (_, __, ___) =>
+                                  Text(_babyEmoji[i], style: const TextStyle(fontSize: 24)),
+                            ),
+                          );
+                        }),
+
+                        // Week labels below the line (Dancing Script)
+                        ...List.generate(journey.totalWeeks, (i) {
+                          final week = i + 1;
+                          final x = TimelineUtils.xForWeek(week, _weekSpacing);
+                          final isPast = week < journey.currentWeek;
+                          final isCurrent = week == journey.currentWeek;
+                          return Positioned(
+                            left: x - 36,
+                            top: isCurrent ? _lineY + 18 : _lineY + 12,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => context.push('/week/$week'),
+                              child: SizedBox(
+                                width: 72,
+                                child: Text(
+                                  'Week $week',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.dancingScript(
+                                    fontSize: isCurrent ? 18 : 16,
+                                    fontWeight: isCurrent
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
+                                    color: isCurrent
+                                        ? AppColors.softGold
+                                        : isPast
+                                            ? AppColors.warmBrown.withValues(alpha: 0.75)
+                                            : AppColors.warmBrown.withValues(alpha: 0.40),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+
+                        // Milestone pins below week labels
+                        ...journey.milestones.asMap().entries.map((e) {
+                          final x = TimelineUtils.xForWeek(
+                              e.value.week, _weekSpacing);
+                          return _MilestonePin(
+                            milestone: e.value,
+                            left: x - _pinW / 2,
+                            top: _lineY + 38,
+                            width: _pinW,
+                            onTap: () => context.push('/week/${e.value.week}'),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── Fixed line (never scrolls) ────────────────────────
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: _lineY - 1,
+                  child: Container(
+                    height: 2,
+                    color: const Color(0xFF3A3A3A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+}
+
+// ─── Private widgets ─────────────────────────────────────────────────────────
 
 class _MilestonePin extends StatelessWidget {
   final Milestone milestone;
@@ -408,9 +389,7 @@ class _MilestonePin extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w500,
-                  color: milestone.reached
-                      ? AppColors.warmBrown
-                      : AppColors.sageMuted,
+                  color: milestone.reached ? AppColors.warmBrown : AppColors.sageMuted,
                   letterSpacing: 0.2,
                 ),
                 textAlign: TextAlign.center,
@@ -424,54 +403,6 @@ class _MilestonePin extends StatelessWidget {
   }
 }
 
-class _PhotoSlot extends StatelessWidget {
-  final double left;
-  final double top;
-  final double size;
-  final bool hasEntry;
-  final VoidCallback onTap;
-
-  const _PhotoSlot({
-    required this.left,
-    required this.top,
-    required this.size,
-    required this.hasEntry,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: left,
-      top: top,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: hasEntry
-                ? AppColors.softGold.withValues(alpha: 0.15)
-                : AppColors.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: hasEntry
-                  ? AppColors.softGold.withValues(alpha: 0.5)
-                  : AppColors.divider,
-              width: 1.0,
-            ),
-          ),
-          child: Center(
-            child: Text(
-              hasEntry ? '🖼️' : '📷',
-              style: TextStyle(fontSize: hasEntry ? 18 : 14),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _JournalColumn extends StatelessWidget {
   final String emoji;
@@ -503,30 +434,20 @@ class _JournalColumn extends StatelessWidget {
             children: [
               Text(emoji, style: const TextStyle(fontSize: 22)),
               const SizedBox(height: AppSpacing.xs),
-              Text(
-                title,
-                style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.warmBrown,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(title,
+                  style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.warmBrown, fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: AppTypography.label.copyWith(
-                  color: AppColors.warmTaupe,
-                  fontSize: 10,
-                  letterSpacing: 0,
-                ),
-                maxLines: 2,
-              ),
+              Text(subtitle,
+                  style: AppTypography.label.copyWith(
+                      color: AppColors.warmTaupe, fontSize: 10, letterSpacing: 0),
+                  maxLines: 2),
               const SizedBox(height: AppSpacing.sm),
               Container(
                 height: 2,
                 decoration: BoxDecoration(
-                  color: AppColors.divider,
-                  borderRadius: BorderRadius.circular(1),
-                ),
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(1)),
               ),
             ],
           ),
@@ -550,10 +471,8 @@ class _FocusTip extends StatelessWidget {
         Text(emoji, style: const TextStyle(fontSize: 14)),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
-          child: Text(
-            text,
-            style: AppTypography.bodySmall.copyWith(color: AppColors.darkOlive),
-          ),
+          child: Text(text,
+              style: AppTypography.bodySmall.copyWith(color: AppColors.darkOlive)),
         ),
       ],
     );

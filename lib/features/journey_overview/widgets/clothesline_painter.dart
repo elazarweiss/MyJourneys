@@ -15,47 +15,48 @@ class ClotheslinePainter extends CustomPainter {
     required this.lineY,
   });
 
-  // Trimester gradient end-points (left → right = lighter → darker)
-  static const _t1Light = Color(0xFFD4EDD4);
-  static const _t1Dark  = Color(0xFF7A9E7A);
-  static const _t2Light = Color(0xFFF5E8D0);
-  static const _t2Dark  = Color(0xFFC8973C);
-  static const _t3Light = Color(0xFFEDD8C0);
-  static const _t3Dark  = Color(0xFF9E7040);
+  // Continuous pregnancy gradient: sage → blush → honey
+  static const _gradientColors = [
+    Color(0xFF90C48A), // soft sage (early)
+    Color(0xFFB8A0C0), // lavender-blush (mid)
+    Color(0xFFCF9850), // warm honey (late)
+  ];
+  static const _gradientStops = [0.0, 0.45, 1.0];
 
   @override
   void paint(Canvas canvas, Size size) {
     _drawBands(canvas, size);
-    _drawLine(canvas);
-    _drawTicks(canvas);
+    // Line is drawn as a fixed widget — not here
+    _drawDots(canvas);
     _drawCurrentWeek(canvas);
   }
 
   void _drawBands(Canvas canvas, Size size) {
-    final bands = [
-      (1,  12, _t1Light, _t1Dark),
-      (13, 26, _t2Light, _t2Dark),
-      (27, totalWeeks, _t3Light, _t3Dark),
-    ];
-    for (final (start, end, light, dark) in bands) {
-      final x1 = TimelineUtils.xForWeek(start, weekSpacing) - weekSpacing / 2;
-      final x2 = TimelineUtils.xForWeek(end, weekSpacing) + weekSpacing / 2;
-      // Subtle band only below the line — keeps icon zone clean
-      final rect = Rect.fromLTRB(x1, lineY, x2, size.height);
-      canvas.drawRect(
-        rect,
-        Paint()
-          ..shader = LinearGradient(
-            colors: [light.withOpacity(0.20), dark.withOpacity(0.38)],
-          ).createShader(rect),
-      );
-      // Very faint tint above line too, for trimester separation
-      final topRect = Rect.fromLTRB(x1, 0, x2, lineY);
-      canvas.drawRect(
-        topRect,
-        Paint()..color = light.withOpacity(0.06),
-      );
-    }
+    // Very faint continuous background tint across full timeline
+    final bgRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.drawRect(
+      bgRect,
+      Paint()
+        ..shader = LinearGradient(
+          colors: _gradientColors
+              .map((c) => c.withOpacity(0.06))
+              .toList(),
+          stops: _gradientStops,
+        ).createShader(bgRect),
+    );
+
+    // Thin accent strip directly below the wire (10px)
+    final stripRect = Rect.fromLTRB(0, lineY + 1, size.width, lineY + 11);
+    canvas.drawRect(
+      stripRect,
+      Paint()
+        ..shader = LinearGradient(
+          colors: _gradientColors
+              .map((c) => c.withOpacity(0.50))
+              .toList(),
+          stops: _gradientStops,
+        ).createShader(stripRect),
+    );
   }
 
   void _drawLine(Canvas canvas) {
@@ -93,32 +94,18 @@ class ClotheslinePainter extends CustomPainter {
     }
   }
 
-  void _drawTicks(Canvas canvas) {
+  void _drawDots(Canvas canvas) {
     for (int week = 1; week <= totalWeeks; week++) {
       if (week == currentWeek) continue;
       final double x = TimelineUtils.xForWeek(week, weekSpacing);
       final bool isPast = week < currentWeek;
-      final Color color = isPast
-          ? AppColors.warmBrown.withOpacity(0.38)
-          : AppColors.warmBrown.withOpacity(0.16);
-
-      canvas.drawLine(
-        Offset(x, lineY - 4),
-        Offset(x, lineY + 4),
-        Paint()..color = color..strokeWidth = 1.0,
-      );
-
-      // Week number — odd above, even below
-      _drawText(
-        canvas,
-        '$week',
-        Offset(x, week.isOdd ? lineY - 14 : lineY + 7),
-        TextStyle(
-          fontSize: 7,
-          color: isPast
-              ? AppColors.warmBrown.withOpacity(0.48)
-              : AppColors.warmBrown.withOpacity(0.20),
-        ),
+      canvas.drawCircle(
+        Offset(x, lineY),
+        5.0,
+        Paint()
+          ..color = isPast
+              ? const Color(0xFF3A3A3A).withOpacity(0.60)
+              : const Color(0xFF3A3A3A).withOpacity(0.28),
       );
     }
   }
@@ -126,18 +113,18 @@ class ClotheslinePainter extends CustomPainter {
   void _drawCurrentWeek(Canvas canvas) {
     final double x = TimelineUtils.xForWeek(currentWeek, weekSpacing);
     canvas.drawCircle(
-      Offset(x, lineY), 16,
+      Offset(x, lineY), 20,
       Paint()..color = AppColors.softGold.withOpacity(0.22),
     );
     canvas.drawCircle(
-      Offset(x, lineY), 10,
+      Offset(x, lineY), 13,
       Paint()..color = AppColors.softGold,
     );
     _drawText(
       canvas,
       '$currentWeek',
       Offset(x, lineY),
-      const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white),
+      const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
       center: true,
     );
   }
