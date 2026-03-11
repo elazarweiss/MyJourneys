@@ -7,6 +7,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/timeline_utils.dart';
 import '../../data/mock_data.dart';
+import '../../data/pregnancy_data.dart';
 import '../../shared/widgets/cream_scaffold.dart';
 import '../../shared/widgets/serif_text.dart';
 import 'widgets/clothesline_painter.dart';
@@ -70,6 +71,9 @@ class JourneyOverviewScreen extends StatelessWidget {
   }
 
   Widget _buildBabySizeCard() {
+    final currentWeek = mockJourney.currentWeek.clamp(1, 40);
+    final info = pregnancyData[currentWeek - 1];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
       child: Container(
@@ -87,7 +91,7 @@ class JourneyOverviewScreen extends StatelessWidget {
                 color: AppColors.softGold.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Center(child: Text('🍈', style: TextStyle(fontSize: 28))),
+              child: Center(child: Text(info.babySizeEmoji, style: const TextStyle(fontSize: 28))),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -97,12 +101,14 @@ class JourneyOverviewScreen extends StatelessWidget {
                   Text('YOUR BABY THIS WEEK',
                       style: AppTypography.label.copyWith(color: AppColors.warmTaupe, fontSize: 9)),
                   const SizedBox(height: 4),
-                  Text('The size of a honeydew melon',
+                  Text('The size of a ${info.babySize}',
                       style: AppTypography.body.copyWith(
                           color: AppColors.warmBrown, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 2),
-                  Text('About 47 cm · 2.6 kg',
-                      style: AppTypography.bodySmall.copyWith(color: AppColors.warmTaupe)),
+                  Text(info.tip,
+                      style: AppTypography.bodySmall.copyWith(color: AppColors.warmTaupe),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
@@ -142,6 +148,9 @@ class JourneyOverviewScreen extends StatelessWidget {
       context.push('/week/${mockJourney.currentWeek}/entry');
 
   Widget _buildWeekFocus() {
+    final currentWeek = mockJourney.currentWeek.clamp(1, 40);
+    final info = pregnancyData[currentWeek - 1];
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
       child: Container(
@@ -157,11 +166,7 @@ class JourneyOverviewScreen extends StatelessWidget {
             Text('✨  THIS WEEK\'S FOCUS',
                 style: AppTypography.label.copyWith(color: AppColors.warmBrown)),
             const SizedBox(height: AppSpacing.md),
-            _FocusTip(emoji: '🌿', text: 'Rest when you can — your body is doing incredible work.'),
-            const SizedBox(height: AppSpacing.sm),
-            _FocusTip(emoji: '💧', text: 'Stay hydrated and keep up gentle movement.'),
-            const SizedBox(height: AppSpacing.sm),
-            _FocusTip(emoji: '📋', text: 'Review your birth plan and pack your hospital bag.'),
+            _FocusTip(emoji: info.babySizeEmoji, text: info.tip),
           ],
         ),
       ),
@@ -183,18 +188,6 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
   static const double _lineY = 78.0;
   static const double _weekSpacing = 110.0;
   static const double _pinW = 88.0;
-
-  // Baby size emoji for weeks 1–40
-  static const _babyEmoji = [
-    '🌱', '🌾', '🫘', '🫐', '🍒', // 1–5
-    '🫛', '🍓', '🫒', '🍇', '🍊', // 6–10
-    '🍋', '🥝', '🍑', '🍏', '🍎', // 11–15
-    '🥑', '🍐', '🍠', '🥭', '🍌', // 16–20
-    '🥕', '🌽', '🍈', '🫑', '🥦', // 21–25
-    '🥬', '🍅', '🍆', '🥒', '🥥', // 26–30
-    '🍍', '🥔', '🧅', '🎃', '🌶️', // 31–35
-    '🍉', '🧄', '🧆', '🥗', '🍉', // 36–40
-  ];
 
   static String _twemojiUrl(String emoji) {
     final runes = emoji.runes
@@ -266,18 +259,19 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
                           ),
                         ),
 
-                        // Baby size emojis above the line
+                        // Baby size emojis above the line — from static data
                         ...List.generate(journey.totalWeeks, (i) {
                           final week = i + 1;
                           final x = TimelineUtils.xForWeek(week, _weekSpacing);
+                          final emoji = pregnancyData[i].babySizeEmoji;
                           return Positioned(
                             left: x - 14,
                             top: _lineY - 54,
                             child: Image.network(
-                              _twemojiUrl(_babyEmoji[i]),
+                              _twemojiUrl(emoji),
                               width: 28, height: 28,
                               errorBuilder: (_, __, ___) =>
-                                  Text(_babyEmoji[i], style: const TextStyle(fontSize: 24)),
+                                  Text(emoji, style: const TextStyle(fontSize: 24)),
                             ),
                           );
                         }),

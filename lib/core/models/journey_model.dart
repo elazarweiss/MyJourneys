@@ -1,35 +1,31 @@
 import 'milestone_model.dart';
-import 'week_entry_model.dart';
 
 class Journey {
   final String name;
-  final int currentWeek;
-  final int totalWeeks;
   final DateTime dueDate;
+  final int totalWeeks;
   final List<Milestone> milestones;
-  final List<WeekEntry> entries;
 
   const Journey({
     required this.name,
-    required this.currentWeek,
-    required this.totalWeeks,
     required this.dueDate,
-    required this.milestones,
-    required this.entries,
+    this.totalWeeks = 40,
+    this.milestones = const [],
   });
 
-  String get trimesterLabel {
-    if (currentWeek <= 12) return 'First Trimester';
-    if (currentWeek <= 26) return 'Second Trimester';
-    return 'Third Trimester';
+  /// Computes the current week number from the due date.
+  /// Conception is assumed to be 280 days before the due date.
+  int get currentWeek {
+    final conceptionDate = dueDate.subtract(const Duration(days: 280));
+    final daysSinceConception = DateTime.now().difference(conceptionDate).inDays;
+    return (daysSinceConception / 7).ceil().clamp(1, totalWeeks);
   }
 
-  WeekEntry? entryForWeek(int week) {
-    try {
-      return entries.firstWhere((e) => e.week == week);
-    } catch (_) {
-      return null;
-    }
+  String get trimesterLabel {
+    final w = currentWeek;
+    if (w <= 12) return 'First Trimester';
+    if (w <= 26) return 'Second Trimester';
+    return 'Third Trimester';
   }
 
   Milestone? milestoneForWeek(int week) {
