@@ -189,160 +189,158 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
   static const double _weekSpacing = 110.0;
   static const double _pinW = 88.0;
 
+  late final ScrollController _scrollController;
+
   static String _twemojiUrl(String emoji) {
     final runes = emoji.runes
-        .where((r) => r != 0xFE0F) // strip variation selector
+        .where((r) => r != 0xFE0F)
         .map((r) => r.toRadixString(16))
         .join('-');
     return 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/$runes.png';
   }
 
-  double _offset = 0;
-  double _viewportWidth = 0;
-  double _offsetAtDragStart = 0;
-  double _dragStartX = 0;
-  bool _initialized = false;
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrentWeek());
+  }
 
-  double get _totalW => mockJourney.totalWeeks * _weekSpacing + _weekSpacing;
-  double get _maxOffset => (_totalW - _viewportWidth).clamp(0, double.infinity);
-
-  void _initOffset() {
-    if (_initialized || _viewportWidth == 0) return;
-    _initialized = true;
+  void _scrollToCurrentWeek() {
+    if (!_scrollController.hasClients) return;
     final weekX = TimelineUtils.xForWeek(mockJourney.currentWeek, _weekSpacing);
-    _offset = (weekX - _viewportWidth / 2).clamp(0, _maxOffset);
+    final viewportWidth = _scrollController.position.viewportDimension;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final target = (weekX - viewportWidth / 2).clamp(0.0, maxScroll);
+    _scrollController.jumpTo(target);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final journey = mockJourney;
+    final double totalW = journey.totalWeeks * _weekSpacing + _weekSpacing;
 
-    return LayoutBuilder(builder: (context, constraints) {
-      _viewportWidth = constraints.maxWidth;
-      _initOffset();
-      final totalW = _totalW;
-
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (details) {
-          _offsetAtDragStart = _offset;
-          _dragStartX = details.globalPosition.dx;
-        },
-        onHorizontalDragUpdate: (details) {
-          setState(() {
-            final dx = _dragStartX - details.globalPosition.dx;
-            _offset = (_offsetAtDragStart + dx).clamp(0, _maxOffset);
-          });
-        },
-        child: ClipRect(
-          child: SizedBox(
-            height: _canvasH,
-            child: Stack(
-              children: [
-                // ── Scrolling content ──────────────────────────────────
-                Transform.translate(
-                  offset: Offset(-_offset, 0),
-                  child: SizedBox(
-                    width: totalW,
-                    height: _canvasH,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Bands + dots + current week gold circle
-                        CustomPaint(
-                          size: Size(totalW, _canvasH),
-                          painter: ClotheslinePainter(
-                            currentWeek: journey.currentWeek,
-                            totalWeeks: journey.totalWeeks,
-                            weekSpacing: _weekSpacing,
-                            lineY: _lineY,
-                          ),
-                        ),
-
-                        // Baby size emojis above the line — from static data
-                        ...List.generate(journey.totalWeeks, (i) {
-                          final week = i + 1;
-                          final x = TimelineUtils.xForWeek(week, _weekSpacing);
-                          final emoji = pregnancyData[i].babySizeEmoji;
-                          return Positioned(
-                            left: x - 14,
-                            top: _lineY - 54,
-                            child: Image.network(
-                              _twemojiUrl(emoji),
-                              width: 28, height: 28,
-                              errorBuilder: (_, __, ___) =>
-                                  Text(emoji, style: const TextStyle(fontSize: 24)),
-                            ),
-                          );
-                        }),
-
-                        // Week labels below the line (Dancing Script)
-                        ...List.generate(journey.totalWeeks, (i) {
-                          final week = i + 1;
-                          final x = TimelineUtils.xForWeek(week, _weekSpacing);
-                          final isPast = week < journey.currentWeek;
-                          final isCurrent = week == journey.currentWeek;
-                          return Positioned(
-                            left: x - 36,
-                            top: isCurrent ? _lineY + 18 : _lineY + 12,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => context.push('/week/$week'),
-                              child: SizedBox(
-                                width: 72,
-                                child: Text(
-                                  'Week $week',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.dancingScript(
-                                    fontSize: isCurrent ? 18 : 16,
-                                    fontWeight: isCurrent
-                                        ? FontWeight.w700
-                                        : FontWeight.w400,
-                                    color: isCurrent
-                                        ? AppColors.softGold
-                                        : isPast
-                                            ? AppColors.warmBrown.withValues(alpha: 0.75)
-                                            : AppColors.warmBrown.withValues(alpha: 0.40),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-
-                        // Milestone pins below week labels
-                        ...journey.milestones.asMap().entries.map((e) {
-                          final x = TimelineUtils.xForWeek(
-                              e.value.week, _weekSpacing);
-                          return _MilestonePin(
-                            milestone: e.value,
-                            left: x - _pinW / 2,
-                            top: _lineY + 38,
-                            width: _pinW,
-                            onTap: () => context.push('/week/${e.value.week}'),
-                          );
-                        }),
-                      ],
+    return SizedBox(
+      height: _canvasH,
+      child: Stack(
+        children: [
+          // ── Scrollable content ──────────────────────────────────────
+          SingleChildScrollView(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: SizedBox(
+              width: totalW,
+              height: _canvasH,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Bands + dots + current-week gold circle
+                  CustomPaint(
+                    size: Size(totalW, _canvasH),
+                    painter: ClotheslinePainter(
+                      currentWeek: journey.currentWeek,
+                      totalWeeks: journey.totalWeeks,
+                      weekSpacing: _weekSpacing,
+                      lineY: _lineY,
                     ),
                   ),
-                ),
 
-                // ── Fixed line (never scrolls) ────────────────────────
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: _lineY - 1,
-                  child: Container(
-                    height: 2,
-                    color: const Color(0xFF3A3A3A),
-                  ),
-                ),
-              ],
+                  // Baby size emojis above the line — from static data
+                  ...List.generate(journey.totalWeeks, (i) {
+                    final week = i + 1;
+                    final x = TimelineUtils.xForWeek(week, _weekSpacing);
+                    final emoji = pregnancyData[i].babySizeEmoji;
+                    return Positioned(
+                      left: x - 14,
+                      top: _lineY - 54,
+                      child: Image.network(
+                        _twemojiUrl(emoji),
+                        width: 28,
+                        height: 28,
+                        errorBuilder: (_, __, ___) =>
+                            Text(emoji, style: const TextStyle(fontSize: 24)),
+                      ),
+                    );
+                  }),
+
+                  // Week dots — tappable circles (whole dot area)
+                  ...List.generate(journey.totalWeeks, (i) {
+                    final week = i + 1;
+                    final x = TimelineUtils.xForWeek(week, _weekSpacing);
+                    final isPast = week < journey.currentWeek;
+                    final isCurrent = week == journey.currentWeek;
+                    return Positioned(
+                      left: x - 36,
+                      top: _lineY - 10,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => context.push('/week/$week'),
+                        child: SizedBox(
+                          width: 72,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 20), // covers dot area
+                              Text(
+                                'Week $week',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.dancingScript(
+                                  fontSize: isCurrent ? 18 : 16,
+                                  fontWeight: isCurrent
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
+                                  color: isCurrent
+                                      ? AppColors.softGold
+                                      : isPast
+                                          ? AppColors.warmBrown
+                                              .withValues(alpha: 0.75)
+                                          : AppColors.warmBrown
+                                              .withValues(alpha: 0.40),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+
+                  // Milestone pins below week labels
+                  ...journey.milestones.asMap().entries.map((e) {
+                    final x =
+                        TimelineUtils.xForWeek(e.value.week, _weekSpacing);
+                    return _MilestonePin(
+                      milestone: e.value,
+                      left: x - _pinW / 2,
+                      top: _lineY + 38,
+                      width: _pinW,
+                      onTap: () => context.push('/week/${e.value.week}'),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+
+          // ── Fixed clothesline wire (never scrolls) ──────────────────
+          Positioned(
+            left: 0,
+            right: 0,
+            top: _lineY - 1,
+            child: IgnorePointer(
+              child: Container(height: 2, color: const Color(0xFF3A3A3A)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
