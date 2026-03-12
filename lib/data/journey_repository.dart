@@ -32,4 +32,15 @@ class JourneyRepository {
   /// Returns a list of 7 entries (null = no check-in for that day).
   List<DayEntry?> getDayEntriesForWeek(int week) =>
       List.generate(7, (i) => getDayEntry(week, i));
+
+  /// Returns all day entries whose Hive key matches any day in [week].
+  /// Useful for bulk checks; individual look-ups via [getDayEntry] also work.
+  Map<int, DayEntry> getDayEntriesForWeekAsMap(int week) {
+    final result = <int, DayEntry>{};
+    for (var i = 0; i < 7; i++) {
+      final entry = getDayEntry(week, i);
+      if (entry != null) result[i] = entry;
+    }
+    return result;
+  }
 }

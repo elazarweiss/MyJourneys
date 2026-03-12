@@ -10,6 +10,8 @@ import '../../data/mock_data.dart';
 import '../../data/pregnancy_data.dart';
 import '../../shared/widgets/cream_scaffold.dart';
 import '../../shared/widgets/serif_text.dart';
+import '../shell/app_shell.dart';
+import '../shell/widgets/mode_switcher.dart';
 import 'widgets/clothesline_painter.dart';
 
 class JourneyOverviewScreen extends StatelessWidget {
@@ -21,6 +23,7 @@ class JourneyOverviewScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader()),
+          const SliverToBoxAdapter(child: ModeSwitcher()),
           const SliverToBoxAdapter(child: _ClotheslineTimeline()),
           SliverToBoxAdapter(child: _buildScrollHint()),
           SliverToBoxAdapter(child: _buildBabySizeCard()),
@@ -281,7 +284,8 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
                       top: _lineY - 10,
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: () => context.push('/week/$week'),
+                        onTap: () =>
+                            AppShell.of(context).openCalendarWeekDetail(week),
                         child: SizedBox(
                           width: 72,
                           child: Column(
@@ -321,7 +325,8 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
                       left: x - _pinW / 2,
                       top: _lineY + 38,
                       width: _pinW,
-                      onTap: () => context.push('/week/${e.value.week}'),
+                      onTap: () => AppShell.of(context)
+                          .openCalendarWeekDetail(e.value.week),
                     );
                   }),
                 ],
