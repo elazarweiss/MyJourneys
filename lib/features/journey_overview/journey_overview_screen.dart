@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/milestone_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -101,8 +100,8 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double canvasH = constraints.maxHeight;
-        // Line at 45% so milestone cards have room below and labels above
-        final double lineY = canvasH * 0.45;
+        // 38% gives enough room for milestone cards (~130px) below
+        final double lineY = canvasH * 0.38;
 
         return SingleChildScrollView(
           controller: _scrollController,
@@ -114,7 +113,7 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // ── Background gradient + ticks (custom paint) ─────────
+                // ── Background tint + ticks + current-week circle ──────
                 CustomPaint(
                   size: Size(totalW, canvasH),
                   painter: ClotheslinePainter(
@@ -125,13 +124,32 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
                   ),
                 ),
 
-                // ── Gradient-coloured wire (visual layer, solid past / shown in painter) ─
-                // The painter draws the wire now, no need for a separate Container
+                // ── Gradient wire (sage → lavender → honey) ────────────
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: lineY - 1.5,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 3,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(0xFF90C48A),
+                            Color(0xFFB8A0C0),
+                            Color(0xFFCF9850),
+                          ],
+                          stops: [0.0, 0.45, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
-                // ── Trimester zone labels (above wire) ─────────────────
+                // ── Trimester labels — well above the wire ─────────────
                 ..._buildTrimesterLabels(lineY),
 
-                // ── Baby-size pills at milestone weeks only ─────────────
+                // ── Baby-size pills — just above the wire ──────────────
                 ...journey.milestones.map((m) {
                   final x = TimelineUtils.xForWeek(m.week, _weekSpacing);
                   final info = pregnancyData[m.week - 1];
@@ -157,9 +175,6 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
                   );
                 }),
 
-                // ── Week number labels (every 4 weeks) ─────────────────
-                ..._buildWeekLabels(lineY, journey.totalWeeks),
-
                 // ── Invisible tap zones for every week ─────────────────
                 ...List.generate(journey.totalWeeks, (i) {
                   final week = i + 1;
@@ -176,31 +191,6 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
                   );
                 }),
 
-                // ── Current-week pill label ─────────────────────────────
-                Positioned(
-                  left: TimelineUtils.xForWeek(
-                              journey.currentWeek, _weekSpacing) -
-                          60,
-                  top: lineY + 20,
-                  child: Container(
-                    width: 120,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.softGold.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Week ${journey.currentWeek} \u2736 Full Term Soon',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.playfairDisplay(
-                        fontSize: 10,
-                        fontStyle: FontStyle.italic,
-                        color: AppColors.softGold,
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -221,7 +211,7 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
       final x = TimelineUtils.xForWeek(starts[i], _weekSpacing);
       return Positioned(
         left: x - 4,
-        top: lineY - 78,
+        top: lineY - 56,
         child: Text(
           labels[i],
           style: AppTypography.label.copyWith(
@@ -235,24 +225,6 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
     });
   }
 
-  List<Widget> _buildWeekLabels(double lineY, int totalWeeks) {
-    return List.generate(totalWeeks ~/ 4, (i) {
-      final week = (i + 1) * 4;
-      final x = TimelineUtils.xForWeek(week, _weekSpacing);
-      return Positioned(
-        left: x - 8,
-        top: lineY - 68,
-        child: Text(
-          '$week',
-          style: AppTypography.label.copyWith(
-            fontSize: 9,
-            color: AppColors.warmTaupe.withOpacity(0.55),
-            letterSpacing: 0,
-          ),
-        ),
-      );
-    });
-  }
 }
 
 // ─── Baby Size Pill ───────────────────────────────────────────────────────────
@@ -282,7 +254,7 @@ class _BabySizePill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       left: x - 36,
-      top: lineY - 52,
+      top: lineY - 28,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(

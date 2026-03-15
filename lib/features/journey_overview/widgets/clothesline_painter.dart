@@ -25,14 +25,13 @@ class ClotheslinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    _drawBands(canvas, size);
-    _drawWire(canvas, size);
+    _drawBackground(canvas, size);
     _drawTicks(canvas);
     _drawCurrentWeek(canvas);
   }
 
-  void _drawBands(Canvas canvas, Size size) {
-    // Very faint continuous background tint across full timeline
+  void _drawBackground(Canvas canvas, Size size) {
+    // Very faint continuous background tint
     final bgRect = Rect.fromLTWH(0, 0, size.width, size.height);
     canvas.drawRect(
       bgRect,
@@ -44,59 +43,6 @@ class ClotheslinePainter extends CustomPainter {
           stops: _gradientStops,
         ).createShader(bgRect),
     );
-
-    // Thin accent strip directly below the wire (10px)
-    final stripRect = Rect.fromLTRB(0, lineY + 1, size.width, lineY + 11);
-    canvas.drawRect(
-      stripRect,
-      Paint()
-        ..shader = LinearGradient(
-          colors: _gradientColors
-              .map((c) => c.withOpacity(0.50))
-              .toList(),
-          stops: _gradientStops,
-        ).createShader(stripRect),
-    );
-  }
-
-  void _drawWire(Canvas canvas, Size size) {
-    final double currentX = TimelineUtils.xForWeek(currentWeek, weekSpacing);
-    final double endX = TimelineUtils.xForWeek(totalWeeks, weekSpacing) + weekSpacing / 2;
-
-    // Past wire — solid, warmBrown 65%
-    canvas.drawLine(
-      Offset(0, lineY),
-      Offset(currentX, lineY),
-      Paint()
-        ..color = AppColors.warmBrown.withOpacity(0.65)
-        ..strokeWidth = 2.5
-        ..strokeCap = StrokeCap.round,
-    );
-
-    // Future wire — dashed, warmBrown 30%
-    final futurePath = Path()..moveTo(currentX, lineY);
-    futurePath.lineTo(endX, lineY);
-
-    final pm = futurePath.computeMetrics().first;
-    double dist = 0;
-    bool draw = true;
-    while (dist < pm.length) {
-      const dashLen = 8.0;
-      const gapLen = 5.0;
-      final step = draw ? dashLen : gapLen;
-      if (draw) {
-        canvas.drawPath(
-          pm.extractPath(dist, dist + step),
-          Paint()
-            ..color = AppColors.warmBrown.withOpacity(0.30)
-            ..strokeWidth = 2.5
-            ..strokeCap = StrokeCap.round
-            ..style = PaintingStyle.stroke,
-        );
-      }
-      dist += step;
-      draw = !draw;
-    }
   }
 
   void _drawTicks(Canvas canvas) {
