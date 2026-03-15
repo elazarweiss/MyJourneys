@@ -80,32 +80,35 @@ class _CalendarModeScreenState extends State<CalendarModeScreen> {
 
           // ── Centred calendar card ──────────────────────────────────────
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.divider),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.warmBrown.withValues(alpha: 0.05),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: MonthCalendarContent(
-                  focusedWeek: _localFocusedWeek,
-                  onDayTap: (week, dayIndex) {
-                    shellState.focusWeek(week);
-                    shellState.focusDay(week, dayIndex);
-                    setState(() {
-                      _localFocusedWeek = week;
-                      _localFocusedDay = dayIndex;
-                    });
-                  },
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 340),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: AppColors.divider),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.warmBrown.withValues(alpha: 0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: MonthCalendarContent(
+                    focusedWeek: _localFocusedWeek,
+                    onDayTap: (week, dayIndex) {
+                      shellState.focusWeek(week);
+                      shellState.focusDay(week, dayIndex);
+                      setState(() {
+                        _localFocusedWeek = week;
+                        _localFocusedDay = dayIndex;
+                      });
+                    },
+                  ),
                 ),
               ),
             ),

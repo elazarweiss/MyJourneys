@@ -7,11 +7,14 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/journey_repository.dart';
 import '../../data/mock_data.dart';
+import '../../data/pregnancy_data.dart';
 import '../../shared/widgets/cream_scaffold.dart';
-import '../../shared/widgets/serif_text.dart';
 import '../shell/app_shell.dart';
 import '../shell/widgets/mode_switcher.dart';
 import 'widgets/day_strip.dart';
+import 'widgets/mood_card.dart';
+import 'widgets/photo_card.dart';
+import 'widgets/stats_pill_row.dart';
 
 class DayModeScreen extends StatefulWidget {
   const DayModeScreen({super.key});
@@ -32,10 +35,16 @@ class _DayModeScreenState extends State<DayModeScreen> {
     'Friday', 'Saturday', 'Sunday',
   ];
 
+  static const _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
   @override
   void initState() {
     super.initState();
     _noteController = TextEditingController();
+    _noteController.addListener(() => setState(() {}));
   }
 
   @override
@@ -75,17 +84,23 @@ class _DayModeScreenState extends State<DayModeScreen> {
     setState(() => _saved = true);
   }
 
+  String _formatDate(DateTime date) {
+    return '${_monthNames[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final shellState = AppShell.of(context);
     final week = shellState.focusedDayWeek;
     final dayIndex = shellState.focusedDayIndex;
 
-    // Pregnancy day progress (0-280)
     final conceptionDate =
         mockJourney.dueDate.subtract(const Duration(days: 280));
     final dayOfPregnancy =
         DateTime.now().difference(conceptionDate).inDays.clamp(0, 280);
+
+    final info = pregnancyData[(week.clamp(1, 40)) - 1];
+    final now = DateTime.now();
 
     return CreamScaffold(
       resizeToAvoidBottomInset: true,
@@ -95,7 +110,7 @@ class _DayModeScreenState extends State<DayModeScreen> {
           SliverToBoxAdapter(
             child: SafeArea(
               bottom: false,
-              child: _buildHeader(week, dayIndex),
+              child: _buildHeader(dayIndex, now),
             ),
           ),
 
@@ -110,26 +125,53 @@ class _DayModeScreenState extends State<DayModeScreen> {
             ),
           ),
 
-          // ── Pregnancy progress bar ────────────────────────────────────
-          SliverToBoxAdapter(
-            child: _buildProgressBar(dayOfPregnancy),
-          ),
-
-          // ── Mood prompt + selectors ────────────────────────────────────
+          // ── Stats pill row ─────────────────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
-              child: _buildMoodSection(),
+                  AppSpacing.lg, 0, AppSpacing.lg, 0),
+              child: StatsPillRow(
+                dayOfPregnancy: dayOfPregnancy,
+                weekNumber: week,
+                babyEmoji: info.babySizeEmoji,
+                babySize: info.babySize,
+              ),
             ),
           ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+
+          // ── Mood card ──────────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: MoodCard(
+                selectedMood: _selectedMood,
+                onMoodSelected: (mood) => setState(() {
+                  _selectedMood = mood;
+                  _saved = false;
+                }),
+              ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
 
           // ── Journal card ───────────────────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: _buildJournalCard(),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+
+          // ── Photo card ─────────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: const PhotoCard(),
             ),
           ),
 
@@ -146,185 +188,89 @@ class _DayModeScreenState extends State<DayModeScreen> {
     );
   }
 
-  // ── Header ─────────────────────────────────────────────────────────────────
-
-  Widget _buildHeader(int week, int dayIndex) {
+  Widget _buildHeader(int dayIndex, DateTime now) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SerifText(_dayNames[dayIndex], fontSize: 36),
-          const SizedBox(height: 2),
           Text(
-            'Week $week  ·  ${mockJourney.trimesterLabel}',
-            style:
-                AppTypography.bodySmall.copyWith(color: AppColors.warmTaupe),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Pregnancy progress bar ─────────────────────────────────────────────────
-
-  Widget _buildProgressBar(int dayOfPregnancy) {
-    final progress = dayOfPregnancy / 280.0;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'DAY $dayOfPregnancy',
-                style: AppTypography.label.copyWith(
-                    color: AppColors.warmTaupe, fontSize: 9),
-              ),
-              Text(
-                'of 280',
-                style: AppTypography.label.copyWith(
-                    color: AppColors.warmTaupe.withValues(alpha: 0.5),
-                    fontSize: 9),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: SizedBox(
-              height: 6,
-              child: Stack(
-                children: [
-                  // Background
-                  Container(color: AppColors.divider),
-                  // Progress
-                  FractionallySizedBox(
-                    widthFactor: progress.clamp(0.0, 1.0),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0xFF90C48A),
-                            Color(0xFFCF9850),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            _dayNames[dayIndex],
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 36,
+              fontWeight: FontWeight.w600,
+              color: AppColors.warmBrown,
             ),
           ),
+          const SizedBox(height: 2),
+          Text(
+            _formatDate(now),
+            style: AppTypography.bodySmall.copyWith(color: AppColors.warmTaupe),
+          ),
         ],
       ),
     );
   }
 
-  // ── Mood section ───────────────────────────────────────────────────────────
-
-  Widget _buildMoodSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'What did you feel today?',
-          style: GoogleFonts.playfairDisplay(
-            fontSize: 20,
-            fontWeight: FontWeight.w400,
-            color: AppColors.warmBrown,
+  Widget _buildJournalCard() {
+    final charCount = _noteController.text.length;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.divider),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.warmBrown.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: Mood.values.map((mood) {
-            final isSelected = _selectedMood == mood;
-            return GestureDetector(
-              onTap: () => setState(() => _selectedMood = mood),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 58,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.sageGreen.withValues(alpha: 0.13)
-                      : AppColors.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.sageGreen
-                        : AppColors.divider,
-                    width: isSelected ? 1.5 : 1,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Card header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+            child: Row(
+              children: [
+                Icon(Icons.menu_book_outlined,
+                    size: 14, color: AppColors.sageGreen),
+                const SizedBox(width: 6),
+                Text(
+                  'MY NOTES',
+                  style: AppTypography.label.copyWith(
+                    color: AppColors.sageGreen,
+                    fontSize: 9,
+                    letterSpacing: 1.0,
                   ),
                 ),
-                child: Column(
-                  children: [
-                    Text(mood.emoji,
-                        style: const TextStyle(fontSize: 24)),
-                    const SizedBox(height: 4),
-                    Text(
-                      mood.label,
-                      style: AppTypography.label.copyWith(
-                        fontSize: 8.5,
-                        letterSpacing: 0,
-                        color: isSelected
-                            ? AppColors.sageGreen
-                            : AppColors.warmTaupe,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                const Spacer(),
+                Text(
+                  '$charCount / 200',
+                  style: AppTypography.label.copyWith(
+                    color: AppColors.warmTaupe.withOpacity(0.6),
+                    fontSize: 9,
+                    letterSpacing: 0,
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  // ── Lined-paper journal card ───────────────────────────────────────────────
-
-  Widget _buildJournalCard() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'A QUICK NOTE',
-          style: AppTypography.label.copyWith(color: AppColors.warmTaupe),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.divider),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.warmBrown.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+              ],
+            ),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+          // Lined paper text area
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(20)),
             child: SizedBox(
-              height: 180,
+              height: 200,
               child: Stack(
                 children: [
-                  // Lined paper background
                   Positioned.fill(
                     child: CustomPaint(painter: _LinedPaperPainter()),
                   ),
-                  // Text field
                   TextField(
                     controller: _noteController,
                     maxLength: 200,
@@ -336,10 +282,11 @@ class _DayModeScreenState extends State<DayModeScreen> {
                       fontSize: 15,
                     ),
                     decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                      hintText: 'Write a thought, feeling, or moment…',
+                      contentPadding:
+                          const EdgeInsets.fromLTRB(40, 14, 16, 12),
+                      hintText: 'Write a thought, feeling, or moment\u2026',
                       hintStyle: AppTypography.body.copyWith(
-                        color: AppColors.warmTaupe.withValues(alpha: 0.45),
+                        color: AppColors.warmTaupe.withOpacity(0.45),
                         fontSize: 15,
                         height: 1.78,
                       ),
@@ -351,12 +298,10 @@ class _DayModeScreenState extends State<DayModeScreen> {
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
-
-  // ── Save button ────────────────────────────────────────────────────────────
 
   Widget _buildSaveButton() {
     return Center(
@@ -365,12 +310,26 @@ class _DayModeScreenState extends State<DayModeScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(
-              horizontal: 36, vertical: AppSpacing.md - 2),
+              horizontal: 40, vertical: AppSpacing.md - 2),
           decoration: BoxDecoration(
+            gradient: _saved
+                ? null
+                : const LinearGradient(
+                    colors: [Color(0xFF8FA888), Color(0xFF6E9B67)],
+                  ),
             color: _saved
-                ? AppColors.sageGreen.withValues(alpha: 0.65)
-                : AppColors.sageGreen,
+                ? AppColors.sageGreen.withOpacity(0.65)
+                : null,
             borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+            boxShadow: _saved
+                ? null
+                : [
+                    BoxShadow(
+                      color: AppColors.sageGreen.withOpacity(0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -378,8 +337,8 @@ class _DayModeScreenState extends State<DayModeScreen> {
               if (_saved)
                 const Padding(
                   padding: EdgeInsets.only(right: 6),
-                  child:
-                      Icon(Icons.check_rounded, color: Colors.white, size: 15),
+                  child: Icon(Icons.check_rounded,
+                      color: Colors.white, size: 15),
                 ),
               Text(
                 _saved ? 'Saved' : 'Save Check-In',
@@ -402,17 +361,23 @@ class _DayModeScreenState extends State<DayModeScreen> {
 class _LinedPaperPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFE8E2D9).withValues(alpha: 0.8)
+    final linePaint = Paint()
+      ..color = const Color(0xFFE8E2D9).withOpacity(0.8)
       ..strokeWidth = 0.75;
 
-    // Lines spaced to match TextField line-height: 15px * 1.78 ≈ 26.7px
-    // First baseline ≈ top padding (14) + font ascent (~13) = 27px
+    // Vertical margin line at x=32, soft pink
+    final marginPaint = Paint()
+      ..color = const Color(0xFFE8C4C4).withOpacity(0.50)
+      ..strokeWidth = 1.0;
+
+    canvas.drawLine(
+        Offset(32, 0), Offset(32, size.height), marginPaint);
+
     const double firstLine = 40.0;
     const double spacing = 26.7;
     var y = firstLine;
     while (y < size.height) {
-      canvas.drawLine(Offset(12, y), Offset(size.width - 12, y), paint);
+      canvas.drawLine(Offset(12, y), Offset(size.width - 12, y), linePaint);
       y += spacing;
     }
   }

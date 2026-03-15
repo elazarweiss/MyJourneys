@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/mood_model.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -52,14 +53,11 @@ class _MonthCalendarContentState extends State<MonthCalendarContent> {
   @override
   void didUpdateWidget(MonthCalendarContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If focusedWeek changed and it's outside the current display month,
-    // navigate to the correct month.
     if (oldWidget.focusedWeek != widget.focusedWeek) {
       _maybeScrollToFocusedWeek();
     }
   }
 
-  /// Compute the calendar month that contains the start of [week].
   void _maybeScrollToFocusedWeek() {
     final weekStart = _weekStartDate(widget.focusedWeek);
     if (weekStart != null) {
@@ -122,7 +120,7 @@ class _MonthCalendarContentState extends State<MonthCalendarContent> {
           // Month navigation header
           Row(
             children: [
-              _NavChevron(
+              _NavButton(
                 icon: Icons.chevron_left,
                 onTap: () => setState(() => _displayMonth =
                     DateTime(_displayMonth.year, _displayMonth.month - 1)),
@@ -131,39 +129,43 @@ class _MonthCalendarContentState extends State<MonthCalendarContent> {
                 child: Center(
                   child: Text(
                     '${_monthNames[_displayMonth.month - 1]} ${_displayMonth.year}',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.warmBrown,
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 20,
                       fontWeight: FontWeight.w600,
+                      color: AppColors.warmBrown,
                     ),
                   ),
                 ),
               ),
-              _NavChevron(
+              _NavButton(
                 icon: Icons.chevron_right,
                 onTap: () => setState(() => _displayMonth =
                     DateTime(_displayMonth.year, _displayMonth.month + 1)),
               ),
             ],
           ),
+          const SizedBox(height: 4),
           // Day-of-week headers
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: _weekDayHeaders
-                  .map((d) => Expanded(
-                        child: Center(
-                          child: Text(
-                            d,
-                            style: AppTypography.label.copyWith(
-                              color: AppColors.warmTaupe,
-                              fontSize: 10,
-                              letterSpacing: 0,
-                            ),
+          Row(
+            children: _weekDayHeaders
+                .map((d) => Expanded(
+                      child: Center(
+                        child: Text(
+                          d,
+                          style: AppTypography.label.copyWith(
+                            color: AppColors.warmTaupe,
+                            fontSize: 10,
+                            letterSpacing: 1.5,
                           ),
                         ),
-                      ))
-                  .toList(),
-            ),
+                      ),
+                    ))
+                .toList(),
+          ),
+          Divider(
+            color: AppColors.divider,
+            thickness: 1,
+            height: 8,
           ),
           // Calendar rows
           ...weeks.map((week) => _buildWeekRow(week, today)),
@@ -173,7 +175,6 @@ class _MonthCalendarContentState extends State<MonthCalendarContent> {
   }
 
   Widget _buildWeekRow(List<_CalendarDay> week, DateTime today) {
-    // A row is "focused" if it contains the focused pregnancy week.
     final isFocusedRow = week.any((d) => d.pregnancyWeek == widget.focusedWeek);
 
     return AnimatedContainer(
@@ -181,9 +182,9 @@ class _MonthCalendarContentState extends State<MonthCalendarContent> {
       margin: const EdgeInsets.symmetric(vertical: 1),
       decoration: BoxDecoration(
         color: isFocusedRow
-            ? AppColors.sageGreen.withValues(alpha: 0.09)
+            ? AppColors.sageGreen.withOpacity(0.10)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: week.map((day) => Expanded(child: _buildDayCell(day, today))).toList(),
@@ -196,57 +197,84 @@ class _MonthCalendarContentState extends State<MonthCalendarContent> {
         calDay.date.month == today.month &&
         calDay.date.day == today.day;
 
+    final isPast = calDay.date.isBefore(today) && !isToday;
+
     final entry = calDay.pregnancyWeek != null
         ? JourneyRepository.instance
             .getDayEntry(calDay.pregnancyWeek!, calDay.dayIndex)
         : null;
     final hasMood = entry?.mood != null;
+    final moodColor = hasMood ? (_moodColors[entry!.mood!] ?? AppColors.sageMuted) : null;
+
+    Color bgColor;
+    Color textColor;
+    double bgOpacity = 0;
+
+    if (isToday) {
+      bgColor = AppColors.softGold;
+      textColor = Colors.white;
+      bgOpacity = 1.0;
+    } else if (hasMood && moodColor != null) {
+      bgColor = moodColor;
+      textColor = AppColors.warmBrown;
+      bgOpacity = 0.30;
+    } else if (isPast && calDay.isCurrentMonth) {
+      bgColor = AppColors.divider;
+      textColor = AppColors.warmTaupe;
+      bgOpacity = 0.30;
+    } else if (!calDay.isCurrentMonth) {
+      bgColor = Colors.transparent;
+      textColor = AppColors.warmTaupe.withOpacity(0.25);
+      bgOpacity = 0;
+    } else {
+      // Future current month
+      bgColor = Colors.transparent;
+      textColor = AppColors.warmBrown.withOpacity(0.60);
+      bgOpacity = 0;
+    }
 
     return GestureDetector(
       onTap: calDay.pregnancyWeek != null
           ? () => widget.onDayTap(calDay.pregnancyWeek!, calDay.dayIndex)
           : null,
       child: SizedBox(
-        height: 40,
+        height: 44,
         child: Center(
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: isToday
-                  ? Border.all(color: AppColors.softGold, width: 2)
-                  : null,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '${calDay.date.day}',
-                  style: AppTypography.label.copyWith(
-                    color: !calDay.isCurrentMonth
-                        ? AppColors.warmTaupe.withValues(alpha: 0.3)
-                        : isToday
-                            ? AppColors.softGold
-                            : AppColors.warmBrown,
-                    fontSize: 12,
-                    letterSpacing: 0,
-                    fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
-                  ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Background circle
+              Container(
+                width: isToday ? 34 : (hasMood || isPast ? 30 : 0),
+                height: isToday ? 34 : (hasMood || isPast ? 30 : 0),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: bgOpacity > 0
+                      ? bgColor.withOpacity(bgOpacity)
+                      : Colors.transparent,
                 ),
-                if (hasMood) ...[
-                  const SizedBox(height: 1),
-                  Container(
-                    width: 5,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: _moodColors[entry!.mood!] ?? AppColors.sageMuted,
-                      shape: BoxShape.circle,
+              ),
+              // Day number
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${calDay.date.day}',
+                    style: AppTypography.label.copyWith(
+                      color: textColor,
+                      fontSize: 12,
+                      letterSpacing: 0,
+                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
                     ),
                   ),
+                  // Mood emoji overlay for hasMood
+                  if (hasMood && !isToday) ...[
+                    Text(entry!.mood!.emoji,
+                        style: const TextStyle(fontSize: 8)),
+                  ],
                 ],
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -254,19 +282,28 @@ class _MonthCalendarContentState extends State<MonthCalendarContent> {
   }
 }
 
-class _NavChevron extends StatelessWidget {
+class _NavButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _NavChevron({required this.icon, required this.onTap});
+  const _NavButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xs),
-        child: Icon(icon, size: 20, color: AppColors.warmBrown),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.softGold.withOpacity(0.15),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: AppColors.softGold.withOpacity(0.40),
+            width: 1,
+          ),
+        ),
+        child: Icon(icon, size: 18, color: AppColors.warmBrown),
       ),
     );
   }

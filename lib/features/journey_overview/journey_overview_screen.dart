@@ -12,6 +12,7 @@ import '../../shared/widgets/serif_text.dart';
 import '../shell/app_shell.dart';
 import '../shell/widgets/mode_switcher.dart';
 import 'widgets/clothesline_painter.dart';
+import 'widgets/milestone_card.dart';
 
 class JourneyOverviewScreen extends StatelessWidget {
   const JourneyOverviewScreen({super.key});
@@ -68,15 +69,6 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
 
   late final ScrollController _scrollController;
 
-  // Twemoji CDN — colour emoji for every platform
-  static String _twemojiUrl(String emoji) {
-    final runes = emoji.runes
-        .where((r) => r != 0xFE0F)
-        .map((r) => r.toRadixString(16))
-        .join('-');
-    return 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/$runes.png';
-  }
-
   @override
   void initState() {
     super.initState();
@@ -109,8 +101,8 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double canvasH = constraints.maxHeight;
-        // Line at 55% so emojis have room above and labels below
-        final double lineY = canvasH * 0.55;
+        // Line at 45% so milestone cards have room below and labels above
+        final double lineY = canvasH * 0.45;
 
         return SingleChildScrollView(
           controller: _scrollController,
@@ -122,7 +114,7 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // ── Background gradient + week dots (custom paint) ─────────
+                // ── Background gradient + ticks (custom paint) ─────────
                 CustomPaint(
                   size: Size(totalW, canvasH),
                   painter: ClotheslinePainter(
@@ -133,67 +125,42 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
                   ),
                 ),
 
-                // ── Gradient-coloured wire ─────────────────────────────────
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: lineY - 1.5,
-                  child: IgnorePointer(
-                    child: Container(
-                      height: 3,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0xFF90C48A), // sage green — first trimester
-                            Color(0xFFB8A0C0), // lavender — second trimester
-                            Color(0xFFCF9850), // warm honey — third trimester
-                          ],
-                          stops: [0.0, 0.45, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                // ── Gradient-coloured wire (visual layer, solid past / shown in painter) ─
+                // The painter draws the wire now, no need for a separate Container
 
-                // ── Trimester zone labels (above emoji row) ────────────────
+                // ── Trimester zone labels (above wire) ─────────────────
                 ..._buildTrimesterLabels(lineY),
 
-                // ── Baby-size Twemoji images (above the wire) ─────────────
-                ...List.generate(journey.totalWeeks, (i) {
-                  final week = i + 1;
-                  final x = TimelineUtils.xForWeek(week, _weekSpacing);
-                  final emoji = pregnancyData[i].babySizeEmoji;
-                  return Positioned(
-                    left: x - 14,
-                    top: lineY - 52,
-                    child: Image.network(
-                      _twemojiUrl(emoji),
-                      width: 26,
-                      height: 26,
-                      errorBuilder: (_, __, ___) => Text(emoji,
-                          style: const TextStyle(fontSize: 20)),
-                    ),
+                // ── Baby-size pills at milestone weeks only ─────────────
+                ...journey.milestones.map((m) {
+                  final x = TimelineUtils.xForWeek(m.week, _weekSpacing);
+                  final info = pregnancyData[m.week - 1];
+                  return _BabySizePill(
+                    x: x,
+                    lineY: lineY,
+                    emoji: info.babySizeEmoji,
+                    babySize: info.babySize,
+                    week: m.week,
                   );
                 }),
 
-                // ── Milestone markers (below the wire, alternating) ────────
+                // ── Milestone cards (below the wire) ────────────────────
                 ...journey.milestones.asMap().entries.map((e) {
                   final x = TimelineUtils.xForWeek(
                       e.value.week, _weekSpacing);
-                  return _MilestoneMarker(
+                  return MilestoneCard(
                     milestone: e.value,
                     x: x,
                     lineY: lineY,
-                    above: false, // all below keeps it clean vs emojis above
                     onTap: () => AppShell.of(context)
                         .openCalendarWeekDetail(e.value.week),
                   );
                 }),
 
-                // ── Key week numbers (every 4 weeks, below milestones) ─────
+                // ── Week number labels (every 4 weeks) ─────────────────
                 ..._buildWeekLabels(lineY, journey.totalWeeks),
 
-                // ── Invisible tap zone for every week dot ──────────────────
+                // ── Invisible tap zones for every week ─────────────────
                 ...List.generate(journey.totalWeeks, (i) {
                   final week = i + 1;
                   final x = TimelineUtils.xForWeek(week, _weekSpacing);
@@ -209,20 +176,26 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
                   );
                 }),
 
-                // ── "Week N" Dancing Script label below current-week circle ─
+                // ── Current-week pill label ─────────────────────────────
                 Positioned(
                   left: TimelineUtils.xForWeek(
                               journey.currentWeek, _weekSpacing) -
-                          40,
-                  top: lineY + 18,
-                  child: SizedBox(
-                    width: 80,
+                          60,
+                  top: lineY + 20,
+                  child: Container(
+                    width: 120,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.softGold.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                     child: Text(
-                      'Week ${journey.currentWeek}',
+                      'Week ${journey.currentWeek} \u2736 Full Term Soon',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.dancingScript(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
                         color: AppColors.softGold,
                       ),
                     ),
@@ -253,7 +226,7 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
           labels[i],
           style: AppTypography.label.copyWith(
             fontSize: 8,
-            color: colors[i].withValues(alpha: 0.85),
+            color: colors[i].withOpacity(0.85),
             letterSpacing: 1.2,
             fontWeight: FontWeight.w700,
           ),
@@ -268,12 +241,12 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
       final x = TimelineUtils.xForWeek(week, _weekSpacing);
       return Positioned(
         left: x - 8,
-        top: lineY + 68,
+        top: lineY - 68,
         child: Text(
           '$week',
           style: AppTypography.label.copyWith(
             fontSize: 9,
-            color: AppColors.warmTaupe.withValues(alpha: 0.55),
+            color: AppColors.warmTaupe.withOpacity(0.55),
             letterSpacing: 0,
           ),
         ),
@@ -282,80 +255,45 @@ class _ClotheslineTimelineState extends State<_ClotheslineTimeline> {
   }
 }
 
-// ─── Milestone Marker ─────────────────────────────────────────────────────────
+// ─── Baby Size Pill ───────────────────────────────────────────────────────────
 
-class _MilestoneMarker extends StatelessWidget {
-  final Milestone milestone;
+class _BabySizePill extends StatelessWidget {
   final double x;
   final double lineY;
-  final bool above;
-  final VoidCallback onTap;
+  final String emoji;
+  final String babySize;
+  final int week;
 
-  const _MilestoneMarker({
-    required this.milestone,
+  const _BabySizePill({
     required this.x,
     required this.lineY,
-    required this.above,
-    required this.onTap,
+    required this.emoji,
+    required this.babySize,
+    required this.week,
   });
+
+  Color get _trimesterColor {
+    if (week <= 12) return const Color(0xFF90C48A);
+    if (week <= 26) return const Color(0xFFB8A0C0);
+    return const Color(0xFFCF9850);
+  }
 
   @override
   Widget build(BuildContext context) {
-    const w = 56.0;
-    const stemH = 10.0;
-
     return Positioned(
-      left: x - w / 2,
-      top: lineY + stemH,
-      child: GestureDetector(
-        onTap: onTap,
-        child: SizedBox(
-          width: w,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Stem
-              Container(
-                width: 1,
-                height: stemH,
-                color: AppColors.warmTaupe.withValues(alpha: 0.35),
-              ),
-              const SizedBox(height: 3),
-              // Milestone emoji in a soft circle
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: milestone.reached
-                      ? AppColors.softGold.withValues(alpha: 0.18)
-                      : AppColors.surface,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: milestone.reached
-                        ? AppColors.softGold.withValues(alpha: 0.5)
-                        : AppColors.divider,
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(milestone.emoji,
-                      style: const TextStyle(fontSize: 16)),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                milestone.label,
-                style: AppTypography.label.copyWith(
-                  fontSize: 8,
-                  color: milestone.reached
-                      ? AppColors.warmBrown
-                      : AppColors.warmTaupe.withValues(alpha: 0.55),
-                  letterSpacing: 0.1,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-              ),
-            ],
+      left: x - 36,
+      top: lineY - 52,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: _trimesterColor.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          '$emoji $babySize',
+          style: TextStyle(
+            fontSize: 9,
+            color: AppColors.warmBrown.withOpacity(0.7),
           ),
         ),
       ),

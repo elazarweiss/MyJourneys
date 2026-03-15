@@ -8,6 +8,11 @@ class ModeSwitcher extends StatelessWidget {
   const ModeSwitcher({super.key});
 
   static const _labels = ['Journey', 'Calendar', 'Day'];
+  static const _icons = [
+    Icons.timeline_outlined,
+    Icons.calendar_month_outlined,
+    Icons.wb_sunny_outlined,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +25,7 @@ class ModeSwitcher extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       child: Container(
-        height: 40,
+        height: 48,
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
@@ -40,17 +45,42 @@ class ModeSwitcher extends StatelessWidget {
                     color: isActive ? AppColors.sageGreen : Colors.transparent,
                     borderRadius:
                         BorderRadius.circular(AppSpacing.pillRadius - 3),
+                    boxShadow: isActive
+                        ? [
+                            BoxShadow(
+                              color: AppColors.sageGreen.withOpacity(0.30),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Center(
-                    child: Text(
-                      _labels[i],
-                      style: AppTypography.label.copyWith(
-                        color: isActive ? Colors.white : AppColors.warmBrown,
-                        fontWeight:
-                            isActive ? FontWeight.w600 : FontWeight.w400,
-                        letterSpacing: 0.3,
-                        fontSize: 11,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _icons[i],
+                          size: 13,
+                          color: isActive
+                              ? Colors.white
+                              : AppColors.warmBrown,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _labels[i],
+                          style: AppTypography.label.copyWith(
+                            color: isActive
+                                ? Colors.white
+                                : AppColors.warmBrown,
+                            fontWeight: isActive
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            letterSpacing: 0.5,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

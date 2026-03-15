@@ -15,7 +15,7 @@ class ClotheslinePainter extends CustomPainter {
     required this.lineY,
   });
 
-  // Continuous pregnancy gradient: sage → blush → honey
+  // Continuous pregnancy gradient: sage → lavender → honey
   static const _gradientColors = [
     Color(0xFF90C48A), // soft sage (early)
     Color(0xFFB8A0C0), // lavender-blush (mid)
@@ -26,8 +26,8 @@ class ClotheslinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     _drawBands(canvas, size);
-    // Line is drawn as a fixed widget — not here
-    _drawDots(canvas);
+    _drawWire(canvas, size);
+    _drawTicks(canvas);
     _drawCurrentWeek(canvas);
   }
 
@@ -59,72 +59,81 @@ class ClotheslinePainter extends CustomPainter {
     );
   }
 
-  void _drawLine(Canvas canvas) {
+  void _drawWire(Canvas canvas, Size size) {
     final double currentX = TimelineUtils.xForWeek(currentWeek, weekSpacing);
     final double endX = TimelineUtils.xForWeek(totalWeeks, weekSpacing) + weekSpacing / 2;
 
-    // Reached — solid wire
+    // Past wire — solid, warmBrown 65%
     canvas.drawLine(
       Offset(0, lineY),
       Offset(currentX, lineY),
       Paint()
         ..color = AppColors.warmBrown.withOpacity(0.65)
-        ..strokeWidth = 1.5
+        ..strokeWidth = 2.5
         ..strokeCap = StrokeCap.round,
     );
 
-    // Future — dashed
-    double x = currentX;
+    // Future wire — dashed, warmBrown 30%
+    final futurePath = Path()..moveTo(currentX, lineY);
+    futurePath.lineTo(endX, lineY);
+
+    final pm = futurePath.computeMetrics().first;
+    double dist = 0;
     bool draw = true;
-    while (x < endX) {
-      final step = draw ? 7.0 : 4.0;
-      final segEnd = (x + step).clamp(0.0, endX);
+    while (dist < pm.length) {
+      const dashLen = 8.0;
+      const gapLen = 5.0;
+      final step = draw ? dashLen : gapLen;
       if (draw) {
-        canvas.drawLine(
-          Offset(x, lineY),
-          Offset(segEnd, lineY),
+        canvas.drawPath(
+          pm.extractPath(dist, dist + step),
           Paint()
-            ..color = AppColors.warmBrown.withOpacity(0.22)
-            ..strokeWidth = 1.5
-            ..strokeCap = StrokeCap.round,
+            ..color = AppColors.warmBrown.withOpacity(0.30)
+            ..strokeWidth = 2.5
+            ..strokeCap = StrokeCap.round
+            ..style = PaintingStyle.stroke,
         );
       }
-      x = segEnd;
+      dist += step;
       draw = !draw;
     }
   }
 
-  void _drawDots(Canvas canvas) {
+  void _drawTicks(Canvas canvas) {
     for (int week = 1; week <= totalWeeks; week++) {
-      if (week == currentWeek) continue;
       final double x = TimelineUtils.xForWeek(week, weekSpacing);
-      final bool isPast = week < currentWeek;
-      canvas.drawCircle(
+      final bool isMajor = week % 4 == 0;
+      final double tickH = isMajor ? 8.0 : 4.0;
+      final double opacity = isMajor ? 0.30 : 0.12;
+
+      canvas.drawLine(
         Offset(x, lineY),
-        5.0,
+        Offset(x, lineY + tickH),
         Paint()
-          ..color = isPast
-              ? const Color(0xFF3A3A3A).withOpacity(0.60)
-              : const Color(0xFF3A3A3A).withOpacity(0.28),
+          ..color = AppColors.warmBrown.withOpacity(opacity)
+          ..strokeWidth = 1.0
+          ..strokeCap = StrokeCap.round,
       );
     }
   }
 
   void _drawCurrentWeek(Canvas canvas) {
     final double x = TimelineUtils.xForWeek(currentWeek, weekSpacing);
+    // Outer glow ring
     canvas.drawCircle(
-      Offset(x, lineY), 20,
-      Paint()..color = AppColors.softGold.withOpacity(0.22),
+      Offset(x, lineY), 22,
+      Paint()..color = AppColors.softGold.withOpacity(0.18),
     );
+    // Inner filled circle
     canvas.drawCircle(
-      Offset(x, lineY), 13,
+      Offset(x, lineY), 14,
       Paint()..color = AppColors.softGold,
     );
     _drawText(
       canvas,
       '$currentWeek',
       Offset(x, lineY),
-      const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+      const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
       center: true,
     );
   }
