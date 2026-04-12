@@ -26,4 +26,9 @@ abstract final class AppColors {
   // Calendar day states
   static const Color dayPast = Color(0xFFEDC9C5);
   static const Color dayHasEntry = Color(0xFFC5D9C1);
+
+  // Baby timeline
+  static const Color babyBlush   = Color(0xFFE8B4B8); // newborn
+  static const Color babyMint    = Color(0xFF93C9BD); // infant
+  static const Color babySunrise = Color(0xFFE8C87A); // toddler
 }

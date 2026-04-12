@@ -6,6 +6,10 @@ import '../../features/calendar/calendar_mode_screen.dart';
 import '../../features/day_view/day_mode_screen.dart';
 import '../../features/weekly_reflection/weekly_reflection_screen.dart';
 import '../../features/daily_check_in/daily_check_in_screen.dart';
+import '../../features/baby/baby_overview_screen.dart';
+import '../../features/baby/baby_setup_screen.dart';
+import '../../features/baby/baby_entry_screen.dart';
+import '../../core/utils/baby_timeline_utils.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/journey',
@@ -45,6 +49,16 @@ final GoRouter appRouter = GoRouter(
             ),
           ],
         ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/baby',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: BabyOverviewScreen(),
+              ),
+            ),
+          ],
+        ),
       ],
     ),
 
@@ -78,6 +92,43 @@ final GoRouter appRouter = GoRouter(
             weekNumber: weekNumber,
             dayIndex: dayIndex,
           ),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+              child: child,
+            );
+          },
+        );
+      },
+    ),
+
+    // ── Baby routes ────────────────────────────────────────────────────────────
+    GoRoute(
+      path: '/baby/setup',
+      pageBuilder: (context, state) => CustomTransitionPage(
+        child: const BabySetupScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+            child: child,
+          );
+        },
+      ),
+    ),
+    GoRoute(
+      path: '/baby/slot/:slotKey',
+      pageBuilder: (context, state) {
+        final slotKey = state.pathParameters['slotKey']!;
+        final slot = BabyTimelineUtils.slotForKey(slotKey);
+        return CustomTransitionPage(
+          child: BabyEntryScreen(slot: slot),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return SlideTransition(
               position: Tween<Offset>(
