@@ -7,12 +7,11 @@ import '../app_shell.dart';
 class ModeSwitcher extends StatelessWidget {
   const ModeSwitcher({super.key});
 
-  static const _labels = ['Journey', 'Calendar', 'Day', 'Baby'];
+  static const _labels = ['Journey', 'Calendar', 'Day'];
   static const _icons = [
     Icons.timeline_outlined,
     Icons.calendar_month_outlined,
     Icons.wb_sunny_outlined,
-    Icons.child_care_outlined,
   ];
 
   @override
